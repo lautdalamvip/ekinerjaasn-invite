@@ -1,242 +1,55 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Admin — eKinerja Asisten</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Undangan eKinerja Asisten</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; margin: 0; padding: 24px; background: #f6f7fb; color: #222; }
-  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .row > * { flex: 1 1 auto; }
-  input, button { font: inherit; }
-  input[type="text"], input[type="password"], input[type="url"] { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
-  button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
-  .btn-primary { background: #111827; color: #fff; }
-  .btn-ghost { background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; }
-  .btn-success { background: #15803d; color: #fff; }
-  .btn-danger { background: #b91c1c; color: #fff; }
-  .muted { color: #6b7280; font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; vertical-align: top; }
-  th { color: #6b7280; font-weight: 500; }
-  .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .badge-pending { background: #fef3c7; color: #92400e; }
-  .badge-approved { background: #dcfce7; color: #166534; }
-  .badge-rejected { background: #fee2e2; color: #991b1b; }
-  .empty { padding: 18px; text-align: center; color: #6b7280; }
-  .topbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .section + .section { margin-top: 18px; }
-  .error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; }
-  .ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 12px; border-radius: 8px; }
-  .hidden { display: none; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; margin: 0; padding: 0; background: #f6f7fb; color: #222; }
+  .wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 24px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.04); text-align: center; }
+  h2 { margin: 0 0 8px; font-size: 18px; }
+  p { color: #6b7280; font-size: 14px; margin: 0 0 16px; }
+  form { display: block; }
+  button { background: #15803d; color: #fff; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%; }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  .msg { margin-top: 12px; font-size: 13px; min-height: 18px; }
+  .error { color: #b91c1c; }
+  .ok { color: #166534; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="topbar">
-      <div>
-        <h1 style="margin:0;font-size:18px;">Admin — eKinerja Asisten</h1>
-        <p class="muted" style="margin:6px 0 0;">Kelola pengajuan akses NIP.</p>
-      </div>
-      <div class="row">
-        <input id="cfg-url" type="url" placeholder="https://yuewhqrcteunhfymtnno.supabase.co" />
-        <input id="cfg-key" type="password" placeholder="service_role key" />
-        <button class="btn-primary" id="btn-connect">Simpan &amp; Load</button>
-      </div>
+  <div class="wrap">
+    <div class="card">
+      <h2>Undangan eKinerja Asisten</h2>
+      <p>Kamu diundang untuk menggunakan ekstensi ini. Klik tombol di bawah untuk menerima akses.</p>
+      <form id="invite-form" method="GET" action="https://yuewhqrcteunhfymtnno.supabase.co/functions/v1/invite">
+        <input type="hidden" name="token" id="token" />
+        <button type="submit" id="btn">Terima undangan</button>
+      </form>
+      <div id="msg" class="msg"></div>
     </div>
-    <p class="muted" style="margin:10px 0 0;">Key disimpan hanya di localStorage browser ini. Jangan bagikan halaman ini.</p>
   </div>
-  <div class="card section hidden" id="panel-pending">
-    <div class="topbar">
-      <h2 style="margin:0;font-size:16px;">Menunggu persetujuan</h2>
-      <button class="btn-ghost" id="btn-refresh">Muat ulang</button>
-    </div>
-    <div id="pending-list"></div>
-  </div>
-  <div class="card section hidden" id="panel-history">
-    <div class="topbar">
-      <h2 style="margin:0;font-size:16px;">Riwayat</h2>
-      <div class="row">
-        <select id="history-filter" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Semua</option>
-          <option value="pending" selected>Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <button class="btn-ghost" id="btn-history-refresh">Muat ulang</button>
-      </div>
-    </div>
-    <div id="history-list"></div>
-  </div>
-  <div class="card section hidden" id="panel-add">
-    <h2 style="margin:0 0 10px;font-size:16px;">Tambah pegawai langsung</h2>
-    <div class="row">
-      <input id="add-nip" type="text" inputmode="numeric" placeholder="NIP 18 digit" />
-      <input id="add-nama" type="text" placeholder="Nama" />
-      <button class="btn-success" id="btn-add">Simpan</button>
-    </div>
-    <div id="add-result" class="muted" style="margin-top:8px;"></div>
-  </div>
-<script>
-  const $ = s => document.querySelector(s);
-  const STORAGE_KEY = 'ekinerja-admin-config-v1';
-  function loadConfig() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
-  }
-  function saveConfig(cfg) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadConfig(), ...cfg }));
-  }
-  function applyConfig() {
-    const cfg = loadConfig();
-    if (cfg.url) $('#cfg-url').value = cfg.url;
-    if (cfg.key) $('#cfg-key').value = cfg.key;
-  }
-  function getClient() {
-    const cfg = loadConfig();
-    const url = ($('#cfg-url').value || cfg.url || '').replace(/\/$/, '');
-    const key = $('#cfg-key').value || cfg.key || '';
-    if (!url || !key) return null;
-    saveConfig({ url, key });
-    return supabase.createClient(url, key);
-  }
-  function el(tag, cls, html) {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (html !== undefined) e.innerHTML = html;
-    return e;
-  }
-  function badge(status) {
-    const map = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' };
-    return `<span class="badge ${map[status] || ''}">${status}</span>`;
-  }
-  function esc(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  async function loadPending() {
-    const sb = getClient(); if (!sb) return;
-    const container = $('#pending-list');
-    container.innerHTML = '<div class="empty">Memuat...</div>';
-    const { data, error } = await sb.from('access_requests').select('id, nip, nama, requested_at').eq('status', 'pending').order('requested_at', { ascending: false });
-    if (error) { container.innerHTML = `<div class="error">${esc(error.message)}</div>`; return; }
-    if (!data.length) { container.innerHTML = '<div class="empty">Tidak ada pengajuan menunggu.</div>'; return; }
-    const table = el('table');
-    table.innerHTML = `<thead><tr><th>#</th><th>NIP</th><th>Nama</th><th>Diajukan</th><th>Aksi</th></tr></thead>`;
-    const tbody = el('tbody');
-    for (const r of data) {
-      const tr = el('tr');
-      tr.innerHTML = `
-        <td>${esc(r.id)}</td>
-        <td>${esc(r.nip)}</td>
-        <td>${esc(r.nama)}</td>
-        <td class="muted">${esc(new Date(r.requested_at).toLocaleString('id-ID'))}</td>
-        <td class="row">
-          <button class="btn-success" data-act="approve" data-id="${r.id}">Setujui</button>
-          <button class="btn-danger" data-act="reject" data-id="${r.id}">Tolak</button>
-          <button class="btn-primary" data-act="invite" data-id="${r.id}">Salin tautan undangan</button>
-        </td>`;
-      tbody.appendChild(tr);
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    const form = document.getElementById('invite-form');
+    const btn = document.getElementById('btn');
+    const msg = document.getElementById('msg');
+    if (!token) {
+      btn.disabled = true;
+      msg.className = 'msg error';
+      msg.textContent = 'Tautan tidak valid.';
+    } else {
+      document.getElementById('token').value = token;
+      form.addEventListener('submit', () => {
+        btn.disabled = true;
+        btn.textContent = 'Memproses...';
+        msg.className = 'msg';
+        msg.textContent = '';
+      });
     }
-    table.appendChild(tbody);
-    container.innerHTML = '';
-    container.appendChild(table);
-    container.querySelectorAll('button[data-act]').forEach(btn => btn.addEventListener('click', async () => {
-      const id = Number(btn.dataset.id);
-      const act = btn.dataset.act;
-      if (act === 'invite') {
-        await generateInvite(id);
-        return;
-      }
-      if (!confirm(act === 'approve' ? `Setujui pengajuan #${id}? NIP akan dimasukkan ke tabel pegawai.` : `Tolak pengajuan #${id}?`)) return;
-      btn.disabled = true; btn.textContent = 'Memproses...';
-      try {
-        if (act === 'approve') await approve(id); else await reject(id);
-        await loadPending(); await loadHistory();
-      } finally { btn.disabled = false; btn.textContent = act === 'approve' ? 'Setujui' : 'Tolak'; }
-    }));
-  }
-  async function loadHistory() {
-    const sb = getClient(); if (!sb) return;
-    const filter = $('#history-filter').value;
-    const container = $('#history-list');
-    container.innerHTML = '<div class="empty">Memuat...</div>';
-    let q = sb.from('access_requests').select('id, nip, nama, status, requested_at, reviewed_at, reviewed_by').order('requested_at', { ascending: false });
-    if (filter) q = q.eq('status', filter);
-    const { data, error } = await q;
-    if (error) { container.innerHTML = `<div class="error">${esc(error.message)}</div>`; return; }
-    if (!data.length) { container.innerHTML = '<div class="empty">Belum ada riwayat.</div>'; return; }
-    const table = el('table');
-    table.innerHTML = `<thead><tr><th>#</th><th>NIP</th><th>Nama</th><th>Status</th><th>Diajukan</th><th>Diperiksa</th><th>Oleh</th></tr></thead>`;
-    const tbody = el('tbody');
-    for (const r of data) {
-      const tr = el('tr');
-      tr.innerHTML = `
-        <td>${esc(r.id)}</td>
-        <td>${esc(r.nip)}</td>
-        <td>${esc(r.nama)}</td>
-        <td>${badge(r.status)}</td>
-        <td class="muted">${esc(new Date(r.requested_at).toLocaleString('id-ID'))}</td>
-        <td class="muted">${r.reviewed_at ? esc(new Date(r.reviewed_at).toLocaleString('id-ID')) : '-'}</td>
-        <td class="muted">${esc(r.reviewed_by || '-')}</td>`;
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-    container.innerHTML = '';
-    container.appendChild(table);
-  }
-  async function approve(id) {
-    const sb = getClient(); if (!sb) return;
-    const { data: req, error: reqErr } = await sb.from('access_requests').select('*').eq('id', id).single();
-    if (reqErr || !req) throw new Error(reqErr?.message || 'Pengajuan tidak ditemukan');
-    const { error: upErr } = await sb.from('access_requests').update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'admin-ui', note: 'Disetujui via admin template' }).eq('id', id);
-    if (upErr) throw upErr;
-    const { error: insErr } = await sb.from('pegawai').upsert({ nip: req.nip, nama: req.nama }, { onConflict: 'nip' });
-    if (insErr) throw insErr;
-  }
-  async function reject(id) {
-    const sb = getClient(); if (!sb) return;
-    const { error } = await sb.from('access_requests').update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'admin-ui', note: 'Ditolak via admin template' }).eq('id', id);
-    if (error) throw error;
-  }
-  async function generateInvite(id) {
-    const sb = getClient(); if (!sb) return;
-    const { data: req, error: reqErr } = await sb.from('access_requests').select('nip, nama').eq('id', id).single();
-    if (reqErr || !req) { alert('Pengajuan tidak ditemukan'); return; }
-    const token = crypto.randomUUID();
-    const { error: insErr } = await sb.from('invite_links').insert({ nip: req.nip, nama: req.nama, token, access_request_id: id });
-    if (insErr) { alert(insErr.message); return; }
-    const base = ($('#cfg-url').value || loadConfig().url || '').replace(/\/$/, '');
-    const url = base + '/functions/v1/invite?token=' + encodeURIComponent(token);
-    await navigator.clipboard.writeText(url).catch(() => {});
-    alert('Tautan undangan tercopy. Kirim ke user via email:\n\n' + url);
-  }
-  async function addPegawai() {
-    const sb = getClient(); if (!sb) return;
-    const nip = $('#add-nip').value.trim();
-    const nama = $('#add-nama').value.trim();
-    const out = $('#add-result');
-    if (!nip || !/^\\d{18}$/.test(nip)) { out.className = 'error'; out.textContent = 'NIP harus 18 digit angka.'; return; }
-    if (!nama) { out.className = 'error'; out.textContent = 'Nama harus diisi.'; return; }
-    out.className = 'muted'; out.textContent = 'Menyimpan...';
-    const { error } = await sb.from('pegawai').upsert({ nip, nama }, { onConflict: 'nip' });
-    if (error) { out.className = 'error'; out.textContent = error.message; return; }
-    out.className = 'ok'; out.textContent = 'Tersimpan.';
-    $('#add-nip').value = ''; $('#add-nama').value = '';
-  }
-  $('#btn-connect').addEventListener('click', () => {
-    const sb = getClient(); if (!sb) { alert('Isi URL dan service_role key.'); return; }
-    $('#panel-pending').classList.remove('hidden');
-    $('#panel-history').classList.remove('hidden');
-    $('#panel-add').classList.remove('hidden');
-    loadPending(); loadHistory();
-  });
-  $('#btn-refresh').addEventListener('click', loadPending);
-  $('#btn-history-refresh').addEventListener('click', loadHistory);
-  $('#history-filter').addEventListener('change', loadHistory);
-  $('#btn-add').addEventListener('click', addPegawai);
-  applyConfig();
-</script>
+  </script>
 </body>
 </html>
